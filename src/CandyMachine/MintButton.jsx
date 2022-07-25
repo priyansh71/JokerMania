@@ -1,6 +1,6 @@
 import { GatewayStatus, useGateway } from "@civic/solana-gateway-react";
 import { useEffect, useState, useRef } from "react";
-import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+import { useConnection } from "@solana/wallet-adapter-react";
 
 import {
 	findGatewayToken,
@@ -15,9 +15,9 @@ export const MintButton = ({
 	candyMachine,
 	isMinting,
 	setIsMinting,
+	walletAddress,
 	isActive,
 }) => {
-	const wallet = useWallet();
 	const connection = useConnection();
 	const [verified, setVerified] = useState(false);
 	const { requestGatewayToken, gatewayStatus } = useGateway();
@@ -69,7 +69,7 @@ export const MintButton = ({
 				if (gatewayStatus === GatewayStatus.ACTIVE) {
 					await onMint();
 				} else {
-					// setIsMinting(true);
+					setIsMinting(true);
 					await requestGatewayToken();
 				}
 			} else if (
@@ -79,7 +79,7 @@ export const MintButton = ({
 				setClicked(true);
 				const gatewayToken = await findGatewayToken(
 					connection.connection,
-					wallet.publicKey,
+					walletAddress.publicKey,
 					candyMachine.state.gatekeeper.gatekeeperNetwork
 				);
 
@@ -93,7 +93,7 @@ export const MintButton = ({
 
 					const gatewayTokenAddress =
 						await getGatewayTokenAddressForOwnerAndGatekeeperNetwork(
-							wallet.publicKey,
+							walletAddress.publicKey,
 							candyMachine.state.gatekeeper.gatekeeperNetwork
 						);
 
@@ -139,15 +139,16 @@ export const MintButton = ({
 			weight={700}
 			style={{
 				color: "white",
-				width: "400px",
+				width: "250px",
 				margin: "auto",
+				height: "40px",
 				paddingLeft: "5rem",
 				paddingRight: "5rem",
-				fontSize: "1.3rem",
+				fontSize: "1.2rem",
 				fontWeight: "100",
 				fontFamily: "Montserrat",
 				position: "absolute",
-				bottom: "4%",
+				bottom: "2%",
 				right: "2%",
 				textAlign: "center",
 				cursor: "pointer",

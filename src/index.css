@@ -1,5 +1,6 @@
 :root {
 	--degree: 180deg;
+	overflow-y: hidden !important;
 }
 
 :root::before {

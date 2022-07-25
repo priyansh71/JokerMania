@@ -5,7 +5,7 @@
 
 .footer-container {
 	position: fixed;
-	bottom: 5px;
+	top: 0px;
 	right: 10px;
 	justify-content: center;
 	align-items: center;
@@ -26,8 +26,8 @@
 
 .image-container {
 	position: relative;
+	transform: translateY(-30px) !important;
 	margin: auto;
-	text-align: center !important;
 }
 
 .container {

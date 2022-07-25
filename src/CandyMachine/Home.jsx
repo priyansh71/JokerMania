@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import * as anchor from "@project-serum/anchor";
 import { clusterApiUrl, Connection, PublicKey } from "@solana/web3.js";
-import { useWallet } from "@solana/wallet-adapter-react";
 import {
 	awaitTransactionSignatureConfirmation,
 	CANDY_MACHINE_PROGRAM,
@@ -20,7 +19,7 @@ import {
 } from "@nfteyez/sol-rayz";
 import "./sugar.css";
 
-import { Button, Center, Stack, Title } from "@mantine/core";
+import { Center, Stack, Title } from "@mantine/core";
 import axios from "axios";
 
 const CandyMachine = props => {
@@ -37,35 +36,33 @@ const CandyMachine = props => {
 	const [loading, setLoading] = useState(false);
 
 	const rpcUrl = props.rpcHost;
-	const wallet = useWallet();
 	const cluster = props.network;
+	const walletAddress = props.walletAddress;
 	const anchorWallet = useMemo(() => {
 		if (
-			!wallet ||
-			!wallet.publicKey ||
-			!wallet.signAllTransactions ||
-			!wallet.signTransaction
+			!walletAddress ||
+			!walletAddress.publicKey ||
+			!walletAddress.signAllTransactions ||
+			!walletAddress.signTransaction
 		) {
 			return;
 		}
 
 		return {
-			publicKey: wallet.publicKey,
-			signAllTransactions: wallet.signAllTransactions,
-			signTransaction: wallet.signTransaction,
+			publicKey: walletAddress.publicKey,
+			signAllTransactions: walletAddress.signAllTransactions,
+			signTransaction: walletAddress.signTransaction,
 		};
-	}, [wallet]);
+	}, [walletAddress]);
 
-	const getProvider = () => {
-		let provider;
-		if ("solana" in window && window.solana) {
-			provider = window.solana;
-			return provider;
+	const getProvider = useCallback(() => {
+		if (walletAddress) {
+			return walletAddress;
 		} else {
-			alert("Please install a Solana Wallet");
+			alert("Please install a Solana walletAddress");
 			return;
 		}
-	};
+	}, [walletAddress]);
 
 	const refreshCandyMachineState = useCallback(
 		async (commitment = "confirmed") => {
@@ -262,13 +259,17 @@ const CandyMachine = props => {
 		try {
 			setIsUserMinting(true);
 			document.getElementById("#identity")?.click();
-			if (wallet.connected && candyMachine?.program && wallet.publicKey) {
+			if (
+				walletAddress &&
+				candyMachine?.program &&
+				walletAddress.publicKey
+			) {
 				let setupMint;
 				if (needTxnSplit && setupTxn === undefined) {
 					console.log("Please sign account setup txn");
 					setupMint = await createAccountsForMint(
 						candyMachine,
-						wallet.publicKey
+						walletAddress.publicKey
 					);
 					let status = { err: true };
 					if (setupMint.transaction) {
@@ -295,7 +296,7 @@ const CandyMachine = props => {
 
 				const mintResult = await mintOneToken(
 					candyMachine,
-					wallet.publicKey,
+					walletAddress.publicKey,
 					beforeTransactions,
 					afterTransactions,
 					setupMint ?? setupTxn
@@ -346,7 +347,7 @@ const CandyMachine = props => {
 				} else if (error.message.indexOf("0x137")) {
 					message = `SOLD OUT!`;
 				} else if (error.message.indexOf("0x135")) {
-					message = `Insufficient funds to mint. Please fund your wallet.`;
+					message = `Insufficient funds to mint. Please fund your walletAddress.`;
 				}
 			} else {
 				if (error.code === 311) {
@@ -365,46 +366,44 @@ const CandyMachine = props => {
 		}
 	};
 
+	const getAllNftData = useCallback(async () => {
+		try {
+			const connect = createConnectionConfig(clusterApiUrl("devnet"));
+			const provider = getProvider();
+			let ownerToken = provider.publicKey;
+			let nfts = await getParsedNftAccountsByOwner({
+				publicAddress: ownerToken,
+				connection: connect,
+				serialization: true,
+			});
+			nfts = nfts.filter(
+				nft =>
+					nft.updateAuthority ===
+					process.env.REACT_APP_UPDATE_AUTHORITY
+			);
+			return nfts;
+		} catch (error) {
+			console.log("Cannot get NFT data");
+		}
+	}, [getProvider]);
+
+	const getNftTokenData = useCallback(async () => {
+		try {
+			let nftData = await getAllNftData();
+			var data = Object.keys(nftData).map(key => nftData[key]);
+			let arr = [];
+			let n = data.length;
+			for (let i = 0; i < n; i++) {
+				let val = await axios.get(data[i].data.uri);
+				arr.push(val);
+			}
+			return arr;
+		} catch (error) {
+			console.log("Cannot fetch data from server");
+		}
+	}, [getAllNftData]);
+
 	useEffect(() => {
-
-		const getAllNftData = async () => {
-			try {
-				const connect = createConnectionConfig(
-					clusterApiUrl(process.env.REACT_APP_SOLANA_NETWORK)
-				);
-				const provider = getProvider();
-				let ownerToken = provider.publicKey;
-				let nfts = await getParsedNftAccountsByOwner({
-					publicAddress: ownerToken,
-					connection: connect,
-					serialization: true,
-				});
-				nfts = nfts.filter(
-					nft =>
-						nft.updateAuthority ===
-						process.env.REACT_APP_UPDATE_AUTHORITY
-				);
-				return nfts;
-			} catch (error) {
-				console.log("Cannot get NFT data");
-			}
-		};
-
-		const getNftTokenData = async () => {
-			try {
-				let nftData = await getAllNftData();
-				var data = Object.keys(nftData).map(key => nftData[key]);
-				let arr = [];
-				let n = data.length;
-				for (let i = 0; i < n; i++) {
-					let val = await axios.get(data[i].data.uri);
-					arr.push(val);
-				}
-				return arr;
-			} catch (error) {
-				console.log("Cannot fetch data from server");
-			}
-		};
 		async function data() {
 			let res = await getNftTokenData();
 			setNftData(res);
@@ -417,219 +416,218 @@ const CandyMachine = props => {
 		anchorWallet,
 		props.candyMachineId,
 		props.connection,
-		refreshCandyMachineState,
 		candyMachine,
+		refreshCandyMachineState,
+		getNftTokenData,
+		getAllNftData,
 	]);
+
 	return (
 		<div className="candy-machine">
-			{!wallet.connected ? (
-				<Button
-					variant="gradient"
-					gradient={{ from: "purple", to: "maroon", deg: 90 }}
-					size="lg"
-					weight={700}
-					style={{
-						color: "white",
-						width: "400px",
-						marginLeft: "auto",
-						marginRight: "auto",
-						marginTop: "100px",
-						paddingLeft: "5rem",
-						paddingRight: "5rem",
-						fontSize: "1.3rem",
-						fontWeight: "100",
-						fontFamily: "Montserrat",
-						cursor: "pointer",
-					}}
-				>
-					Finding Solana Wallet...
-				</Button>
-			) : (
-				<>
-					{candyMachine && (
-						<div>
-							<Stack
-								style={{
-									display: "flex",
-									flexDirection: "row",
-									textAlign: "center",
-									justifyContent: "center",
-									alignItems: "center",
-									marginLeft: "auto",
-									marginRight: "auto",
-									color: "aliceblue",
-									fontFamily: "Montserrat",
-									marginTop: "30px",
-									marginBottom: "30px",
-								}}
-							>
+			{candyMachine && (
+				<div>
+					<Stack
+						style={{
+							display: "flex",
+							flexDirection: "row",
+							textAlign: "center",
+							justifyContent: "center",
+							alignItems: "center",
+							marginLeft: "auto",
+							marginRight: "auto",
+							color: "aliceblue",
+							fontFamily: "Montserrat",
+							marginTop: "10px",
+							marginBottom: "15px",
+						}}
+					>
+						<Title
+							order={2}
+							style={{
+								fontFamily: "Montserrat",
+								color: "#deedeefa",
+							}}
+						>
+							NFTs remaining in collection :{" "}
+						</Title>
+
+						<Title
+							order={2}
+							style={{
+								fontFamily: "Montserrat",
+								color: "#deedeeab",
+							}}
+						>
+							{itemsRemaining}/{candyMachine.state.itemsAvailable}
+						</Title>
+					</Stack>
+
+					<Center>
+						<div className="gif-grid">
+							{loading ? (
+								<>
+									{nftData && nftData.length > 0 ? (
+										nftData.map((val, ind) => {
+											return (
+												<div
+													key={ind}
+													className="gif-item"
+												>
+													<img
+														src={val.data.image}
+														className="gif-image"
+														alt="loading..."
+													/>
+													<Title
+														order={4}
+														color="#8a8a8a"
+														style={{
+															fontFamily:
+																"Montserrat",
+														}}
+													>
+														{val.data.name}
+													</Title>
+													<Title
+														order={6}
+														color="#deedee"
+														style={{
+															fontFamily:
+																"Montserrat",
+														}}
+													>
+														{val.data.description}
+													</Title>
+												</div>
+											);
+										})
+									) : (
+										<Title
+											order={2}
+											color="#fafafa"
+											style={{
+												fontFamily: "Montserrat",
+											}}
+										>
+											You haven't minted anything yet.
+										</Title>
+									)}
+								</>
+							) : (
 								<Title
-									order={1}
+									order={2}
+									color="#fafafa"
 									style={{
 										fontFamily: "Montserrat",
-										color: "#deedeefa",
 									}}
 								>
-									NFTs Remaining to Mint :{" "}
+									Waiting for candyMachine to load...
 								</Title>
-
-								<Title
-									order={1}
-									style={{
-										fontFamily: "Montserrat",
-										color: "#deedeeab",
-									}}
-								>
-									{itemsRemaining}/
-									{candyMachine.state.itemsAvailable}
-								</Title>
-							</Stack>
-
-							<Center>
-								<div className="gif-grid">
-									{loading ? (
-										<>
-											{nftData &&
-												nftData.length > 0 &&
-												nftData.map((val, ind) => {
-													return (
-														<div
-															key={ind}
-															className="gif-item"
-														>
-															<img
-																src={
-																	val.data
-																		.image
-																}
-																className="gif-image"
-																alt="loading..."
-															/>
-															<Title
-																order={2}
-																color="aliceblue"
-																style={{
-																	fontFamily:
-																		"Montserrat",
-																}}
-															>
-																{val.data.name}
-															</Title>
-														</div>
-													);
-												})}
-										</>
-									) : null}
-								</div>
-							</Center>
+							)}
 						</div>
-					)}
-					<div>
-						{candyMachine?.state.isActive &&
-						candyMachine?.state.gatekeeper &&
-						wallet.publicKey &&
-						wallet.signTransaction ? (
-							<GatewayProvider
-								wallet={{
-									publicKey:
-										wallet.publicKey ||
-										new PublicKey(CANDY_MACHINE_PROGRAM),
-									signTransaction: wallet.signTransaction,
-								}}
-								gatekeeperNetwork={
-									candyMachine?.state?.gatekeeper
-										?.gatekeeperNetwork
-								}
-								clusterUrl={rpcUrl}
-								cluster={cluster}
-								handleTransaction={async transaction => {
-									setIsUserMinting(true);
-									const userMustSign =
-										transaction.signatures.find(sig =>
-											sig.publicKey.equals(
-												wallet.publicKey
-											)
-										);
-									if (userMustSign) {
-										console.log(
-											"Please sign one-time Civic Pass issuance"
-										);
-										try {
-											transaction =
-												await wallet.signTransaction(
-													transaction
-												);
-										} catch (e) {
-											console.log(
-												"User cancelled signing"
-											);
-											setTimeout(
-												() => window.location.reload(),
-												2000
-											);
-											setIsUserMinting(false);
-											throw e;
-										}
-									} else {
-										console.log("Refreshing Civic Pass");
-									}
-									try {
-										await sendTransaction(
-											props.connection,
-											wallet,
-											transaction,
-											[],
-											true,
-											"confirmed"
-										);
-										console.log("Please sign minting");
-									} catch (e) {
-										console.log(
-											"Solana dropped the transaction, please try again"
-										);
-										console.error(e);
-										setTimeout(
-											() => window.location.reload(),
-											2000
-										);
-										setIsUserMinting(false);
-										throw e;
-									}
-									await onMint();
-								}}
-								broadcastTransaction={false}
-								options={{ autoShowModal: false }}
-							>
-								<MintButton
-									candyMachine={candyMachine}
-									isMinting={isUserMinting}
-									setIsMinting={val => setIsUserMinting(val)}
-									onMint={onMint}
-									isActive={
-										isActive ||
-										(isPresale &&
-											isWhitelistUser &&
-											isValidBalance)
-									}
-								/>
-							</GatewayProvider>
-						) : (
-							<MintButton
-								candyMachine={candyMachine}
-								isMinting={isUserMinting}
-								setIsMinting={val => setIsUserMinting(val)}
-								onMint={onMint}
-								isActive={
-									isActive ||
-									(isPresale &&
-										isWhitelistUser &&
-										isValidBalance)
-								}
-							/>
-						)}
-					</div>
-				</>
+					</Center>
+				</div>
 			)}
+			<div>
+				{candyMachine?.state.isActive &&
+				candyMachine?.state.gatekeeper &&
+				walletAddress.publicKey &&
+				walletAddress.signTransaction ? (
+					<GatewayProvider
+						walletAddress={{
+							publicKey:
+								walletAddress.publicKey ||
+								new PublicKey(CANDY_MACHINE_PROGRAM),
+							signTransaction: walletAddress.signTransaction,
+						}}
+						gatekeeperNetwork={
+							candyMachine?.state?.gatekeeper?.gatekeeperNetwork
+						}
+						clusterUrl={rpcUrl}
+						cluster={cluster}
+						handleTransaction={async transaction => {
+							setIsUserMinting(true);
+							const userMustSign = transaction.signatures.find(
+								sig =>
+									sig.publicKey.equals(
+										walletAddress.publicKey
+									)
+							);
+							if (userMustSign) {
+								console.log(
+									"Please sign one-time Civic Pass issuance"
+								);
+								try {
+									transaction =
+										await walletAddress.signTransaction(
+											transaction
+										);
+								} catch (e) {
+									console.log("User cancelled signing");
+									setTimeout(
+										() => window.location.reload(),
+										2000
+									);
+									setIsUserMinting(false);
+									throw e;
+								}
+							} else {
+								console.log("Refreshing Civic Pass");
+							}
+							try {
+								await sendTransaction(
+									props.connection,
+									walletAddress,
+									transaction,
+									[],
+									true,
+									"confirmed"
+								);
+								console.log("Please sign minting");
+							} catch (e) {
+								console.log(
+									"Solana dropped the transaction, please try again"
+								);
+								console.error(e);
+								setTimeout(
+									() => window.location.reload(),
+									2000
+								);
+								setIsUserMinting(false);
+								throw e;
+							}
+							await onMint();
+						}}
+						broadcastTransaction={false}
+						options={{ autoShowModal: false }}
+					>
+						<MintButton
+							candyMachine={candyMachine}
+							isMinting={isUserMinting}
+							setIsMinting={val => setIsUserMinting(val)}
+							onMint={onMint}
+							walletAddress={window.solana}
+							isActive={
+								isActive ||
+								(isPresale && isWhitelistUser && isValidBalance)
+							}
+						/>
+					</GatewayProvider>
+				) : (
+					<MintButton
+						candyMachine={candyMachine}
+						isMinting={isUserMinting}
+						setIsMinting={val => setIsUserMinting(val)}
+						onMint={onMint}
+						walletAddress={window.solana}
+						isActive={
+							isActive ||
+							(isPresale && isWhitelistUser && isValidBalance)
+						}
+					/>
+				)}
+			</div>
+			)
 		</div>
 	);
 };
