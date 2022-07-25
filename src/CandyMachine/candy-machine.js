@@ -452,6 +452,8 @@ export const mintOneToken = async (
 		})
 	);
 
+	console.log(metadataAddress);
+
 	const [collectionPDA] = await getCollectionPDA(candyMachineAddress);
 	const collectionPDAAccount =
 		await candyMachine.program.provider.connection.getAccountInfo(

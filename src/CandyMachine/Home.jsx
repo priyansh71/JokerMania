@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import * as anchor from "@project-serum/anchor";
-import { Connection, PublicKey } from "@solana/web3.js";
+import { clusterApiUrl, Connection, PublicKey } from "@solana/web3.js";
 import { useWallet } from "@solana/wallet-adapter-react";
 import {
 	awaitTransactionSignatureConfirmation,
@@ -14,7 +14,14 @@ import { getAtaForMint } from "./utils";
 import { MintButton } from "./MintButton";
 import { GatewayProvider } from "@civic/solana-gateway-react";
 import { sendTransaction } from "./connection";
-import { Button, Container, Stack, Title } from "@mantine/core";
+import {
+	getParsedNftAccountsByOwner,
+	createConnectionConfig,
+} from "@nfteyez/sol-rayz";
+import "./sugar.css";
+
+import { Button, Center, Stack, Title } from "@mantine/core";
+import axios from "axios";
 
 const CandyMachine = props => {
 	const [isUserMinting, setIsUserMinting] = useState(false);
@@ -26,6 +33,8 @@ const CandyMachine = props => {
 	const [isValidBalance, setIsValidBalance] = useState(false);
 	const [needTxnSplit, setNeedTxnSplit] = useState(true);
 	const [setupTxn, setSetupTxn] = useState();
+	const [nftData, setNftData] = useState([]);
+	const [loading, setLoading] = useState(false);
 
 	const rpcUrl = props.rpcHost;
 	const wallet = useWallet();
@@ -46,6 +55,56 @@ const CandyMachine = props => {
 			signTransaction: wallet.signTransaction,
 		};
 	}, [wallet]);
+
+	const getProvider = () => {
+		let provider;
+		if ("solana" in window && window.solana) {
+			provider = window.solana;
+			return provider;
+		} else {
+			alert("Please install a Solana Wallet");
+			return;
+		}
+	};
+
+	const getAllNftData = async () => {
+		try {
+			const connect = createConnectionConfig(
+				clusterApiUrl(process.env.REACT_APP_SOLANA_NETWORK)
+			);
+			const provider = getProvider();
+			let ownerToken = provider.publicKey;
+			let nfts = await getParsedNftAccountsByOwner({
+				publicAddress: ownerToken,
+				connection: connect,
+				serialization: true,
+			});
+			nfts = nfts.filter(
+				nft =>
+					nft.updateAuthority ===
+					process.env.REACT_APP_UPDATE_AUTHORITY
+			);
+			return nfts;
+		} catch (error) {
+			console.log("Cannot get NFT data");
+		}
+	};
+
+	const getNftTokenData = async () => {
+		try {
+			let nftData = await getAllNftData();
+			var data = Object.keys(nftData).map(key => nftData[key]);
+			let arr = [];
+			let n = data.length;
+			for (let i = 0; i < n; i++) {
+				let val = await axios.get(data[i].data.uri);
+				arr.push(val);
+			}
+			return arr;
+		} catch (error) {
+			console.log("Cannot fetch data from server");
+		}
+	};
 
 	const refreshCandyMachineState = useCallback(
 		async (commitment = "confirmed") => {
@@ -296,7 +355,7 @@ const CandyMachine = props => {
 							mintResult.metadataKey,
 							"processed"
 						);
-					console.log("Metadata status: ", !!metadataStatus);
+					console.log("Metadata status: ", metadataStatus);
 				}
 
 				if (status && !status.err && metadataStatus) {
@@ -346,40 +405,23 @@ const CandyMachine = props => {
 	};
 
 	useEffect(() => {
+		async function data() {
+			let res = await getNftTokenData();
+			setNftData(res);
+			setLoading(true);
+		}
+		data();
 		refreshCandyMachineState();
+		setLoading(true);
 	}, [
 		anchorWallet,
 		props.candyMachineId,
 		props.connection,
 		refreshCandyMachineState,
+		candyMachine,
 	]);
-
-	useEffect(() => {
-		(function loop() {
-			setTimeout(() => {
-				refreshCandyMachineState();
-				loop();
-			}, 20000);
-		})();
-	}, [refreshCandyMachineState]);
-
 	return (
-		<Container
-			style={{
-				display: "flex",
-				background: "transparent",
-				backdropFilter: "blur(1px)",
-				backdropContrast: "90%",
-				width: "500px",
-				margin: "auto",
-				padding: "1rem",
-				borderRadius: "6px",
-				boxShadow: "0px 0px 10px rgba(0,0,0,0.5)",
-				border: "1px solid #e6e6e6",
-				height: "200px",
-				flexDirection: "column",
-			}}
-		>
+		<div className="candy-machine">
 			{!wallet.connected ? (
 				<Button
 					variant="gradient"
@@ -389,7 +431,9 @@ const CandyMachine = props => {
 					style={{
 						color: "white",
 						width: "400px",
-						margin: "auto",
+						marginLeft: "auto",
+						marginRight: "auto",
+						marginTop: "100px",
 						paddingLeft: "5rem",
 						paddingRight: "5rem",
 						fontSize: "1.3rem",
@@ -398,47 +442,87 @@ const CandyMachine = props => {
 						cursor: "pointer",
 					}}
 				>
-					Connect Wallet
+					Finding Solana Wallet...
 				</Button>
 			) : (
 				<>
 					{candyMachine && (
-						<Stack
-							style={{
-								display: "flex",
-								flexDirection: "row",
-								textAlign: "center",
-								justifyContent: "center",
-								alignItems: "center",
-								marginLeft: "auto",
-								marginRight: "auto",
-								color: "aliceblue",
-								fontFamily: "Montserrat",
-								marginTop: "30px",
-								marginBottom: "30px",
-							}}
-						>
-							<Title
-								order={1}
+						<div>
+							<Stack
 								style={{
+									display: "flex",
+									flexDirection: "row",
+									textAlign: "center",
+									justifyContent: "center",
+									alignItems: "center",
+									marginLeft: "auto",
+									marginRight: "auto",
+									color: "aliceblue",
 									fontFamily: "Montserrat",
-									color: "#deedeefa",
+									marginTop: "30px",
+									marginBottom: "30px",
 								}}
 							>
-								NFTs Remaining :{" "}
-							</Title>
+								<Title
+									order={1}
+									style={{
+										fontFamily: "Montserrat",
+										color: "#deedeefa",
+									}}
+								>
+									NFTs Remaining to Mint :{" "}
+								</Title>
 
-							<Title
-								order={1}
-								style={{
-									fontFamily: "Montserrat",
-									color: "#deedeeab",
-								}}
-							>
-								{itemsRemaining}/
-								{candyMachine.state.itemsAvailable}
-							</Title>
-						</Stack>
+								<Title
+									order={1}
+									style={{
+										fontFamily: "Montserrat",
+										color: "#deedeeab",
+									}}
+								>
+									{itemsRemaining}/
+									{candyMachine.state.itemsAvailable}
+								</Title>
+							</Stack>
+
+							<Center>
+								<div className="gif-grid">
+									{loading ? (
+										<>
+											{nftData &&
+												nftData.length > 0 &&
+												nftData.map((val, ind) => {
+													return (
+														<div
+															key={ind}
+															className="gif-item"
+														>
+															<img
+																src={
+																	val.data
+																		.image
+																}
+																className="gif-image"
+																alt="loading..."
+															/>
+															<Title
+																order={2}
+																color="aliceblue"
+																style={{
+																	fontFamily:
+																		"Montserrat",
+																}}
+															>
+																{val.data.name}
+															</Title>
+														</div>
+													);
+												})}
+										</>
+									) : null}
+								</div>
+							</Center>
+						</div>
 					)}
 					<div>
 						{candyMachine?.state.isActive &&
@@ -450,7 +534,6 @@ const CandyMachine = props => {
 									publicKey:
 										wallet.publicKey ||
 										new PublicKey(CANDY_MACHINE_PROGRAM),
-									//@ts-ignore
 									signTransaction: wallet.signTransaction,
 								}}
 								gatekeeperNetwork={
@@ -547,7 +630,7 @@ const CandyMachine = props => {
 					</div>
 				</>
 			)}
-		</Container>
+		</div>
 	);
 };
 

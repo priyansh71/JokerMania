@@ -19,7 +19,7 @@ import {
 	WalletProvider,
 } from "@solana/wallet-adapter-react";
 import { WalletDialogProvider } from "@solana/wallet-adapter-material-ui";
-import CandyMachine from "./CandyMachine/index";
+import CandyMachine from "./CandyMachine/Home";
 
 const TWITTER_HANDLE = "priyansh_71";
 const TWITTER_LINK = `https://twitter.com/${TWITTER_HANDLE}`;
@@ -37,8 +37,8 @@ const getCandyMachineId = () => {
 
 let error = undefined;
 const candyMachineId = getCandyMachineId();
-const network = "devnet";
-const rpcHost = anchor.web3.clusterApiUrl("devnet");
+const network = process.env.REACT_APP_SOLANA_NETWORK;
+const rpcHost = anchor.web3.clusterApiUrl(network);
 const connection = new anchor.web3.Connection(rpcHost);
 
 function App() {

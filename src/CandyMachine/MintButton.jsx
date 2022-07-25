@@ -26,17 +26,17 @@ export const MintButton = ({
 
 	const getMintButtonContent = () => {
 		if (candyMachine?.state.isSoldOut) {
-			return "SOLD OUT";
+			return "Sold Out";
 		} else if (isMinting) {
-			return "MINTING...";
+			return "Minting...";
 		} else if (
 			candyMachine?.state.isPresale ||
 			candyMachine?.state.isWhitelistOnly
 		) {
-			return "WHITELIST MINT";
+			return "Whitelist Mint";
 		}
 
-		return "MINT NFT";
+		return "Mint NFT";
 	};
 
 	useEffect(() => {
@@ -146,6 +146,10 @@ export const MintButton = ({
 				fontSize: "1.3rem",
 				fontWeight: "100",
 				fontFamily: "Montserrat",
+				position: "absolute",
+				bottom: "4%",
+				right: "2%",
+				textAlign: "center",
 				cursor: "pointer",
 			}}
 			onClick={minting}
