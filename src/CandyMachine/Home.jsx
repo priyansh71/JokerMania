@@ -67,45 +67,6 @@ const CandyMachine = props => {
 		}
 	};
 
-	const getAllNftData = async () => {
-		try {
-			const connect = createConnectionConfig(
-				clusterApiUrl(process.env.REACT_APP_SOLANA_NETWORK)
-			);
-			const provider = getProvider();
-			let ownerToken = provider.publicKey;
-			let nfts = await getParsedNftAccountsByOwner({
-				publicAddress: ownerToken,
-				connection: connect,
-				serialization: true,
-			});
-			nfts = nfts.filter(
-				nft =>
-					nft.updateAuthority ===
-					process.env.REACT_APP_UPDATE_AUTHORITY
-			);
-			return nfts;
-		} catch (error) {
-			console.log("Cannot get NFT data");
-		}
-	};
-
-	const getNftTokenData = async () => {
-		try {
-			let nftData = await getAllNftData();
-			var data = Object.keys(nftData).map(key => nftData[key]);
-			let arr = [];
-			let n = data.length;
-			for (let i = 0; i < n; i++) {
-				let val = await axios.get(data[i].data.uri);
-				arr.push(val);
-			}
-			return arr;
-		} catch (error) {
-			console.log("Cannot fetch data from server");
-		}
-	};
-
 	const refreshCandyMachineState = useCallback(
 		async (commitment = "confirmed") => {
 			if (!anchorWallet) {
@@ -405,6 +366,45 @@ const CandyMachine = props => {
 	};
 
 	useEffect(() => {
+
+		const getAllNftData = async () => {
+			try {
+				const connect = createConnectionConfig(
+					clusterApiUrl(process.env.REACT_APP_SOLANA_NETWORK)
+				);
+				const provider = getProvider();
+				let ownerToken = provider.publicKey;
+				let nfts = await getParsedNftAccountsByOwner({
+					publicAddress: ownerToken,
+					connection: connect,
+					serialization: true,
+				});
+				nfts = nfts.filter(
+					nft =>
+						nft.updateAuthority ===
+						process.env.REACT_APP_UPDATE_AUTHORITY
+				);
+				return nfts;
+			} catch (error) {
+				console.log("Cannot get NFT data");
+			}
+		};
+
+		const getNftTokenData = async () => {
+			try {
+				let nftData = await getAllNftData();
+				var data = Object.keys(nftData).map(key => nftData[key]);
+				let arr = [];
+				let n = data.length;
+				for (let i = 0; i < n; i++) {
+					let val = await axios.get(data[i].data.uri);
+					arr.push(val);
+				}
+				return arr;
+			} catch (error) {
+				console.log("Cannot fetch data from server");
+			}
+		};
 		async function data() {
 			let res = await getNftTokenData();
 			setNftData(res);
