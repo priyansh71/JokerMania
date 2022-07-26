@@ -6,7 +6,7 @@ import joker from "./assets/joker.svg";
 import { Image, Container } from "@mantine/core";
 import * as anchor from "@project-serum/anchor";
 import { clusterApiUrl } from "@solana/web3.js";
-import { DEFAULT_TIMEOUT } from "./CandyMachine/connection";
+import { DEFAULT_TIMEOUT } from "candy-machine-assistant";
 import { ConnectionProvider } from "@solana/wallet-adapter-react";
 import CandyMachine from "./CandyMachine/Home";
 

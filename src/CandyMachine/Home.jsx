@@ -8,11 +8,11 @@ import {
 	getCandyMachineState,
 	getCollectionPDA,
 	mintOneToken,
-} from "./candy-machine";
-import { getAtaForMint } from "./utils";
+	sendTransaction,
+	getAtaForMint
+} from "candy-machine-assistant";
 import { MintButton } from "./MintButton";
 import { GatewayProvider } from "@civic/solana-gateway-react";
-import { sendTransaction } from "./connection";
 import {
 	getParsedNftAccountsByOwner,
 	createConnectionConfig,
